@@ -1,0 +1,125 @@
+from mpi4py import MPI
+import os
+from geoip import geolite2
+import collections
+comm = MPI.COMM_WORLD
+#print (comm)
+rank = comm.Get_rank()
+size = comm.Get_size()
+#print('My rank is ',rank)
+#print('My size is ',rank)
+sFilePath ="/home/rafa/PythonRun/logs/"
+lIpsOrigen=[]
+lCountry=[]
+lTimes=[]
+lMails=[]
+def analyzeMail(strLine):
+    initLIne = strLine.find("account=")
+    endLIne = strLine.find("@ucab.edu.ve;")
+    mail = strLine[initLIne:endLIne]
+    lMails.append(mail)
+
+def analyzeTime(strLine):
+    stime = strLine[14:16]
+    lTimes.append(stime)
+
+def analyzeIpPop3SSLServer(strLine):
+    initLIne = strLine.find("[ip=")+4
+    endLIne = strLine.find(";]")
+    ipLIne = strLine[initLIne:endLIne]
+    ipDEst= (ipLIne.split(";")[0])
+    ipOrig= (ipLIne.split(";")[1].replace("oip=",""))
+    lIpsOrigen.append(ipOrig)
+
+def analyzeIpImapSSLServer(strLine):
+    initLIne = strLine.find("[ip=")+4
+    endLIne = strLine.find(";]")
+    ipLIne = strLine[initLIne:endLIne]
+    ipDEst= (ipLIne.split(";")[0])
+    ipOrig= (ipLIne.split(";")[1].replace("oip=",""))
+    lIpsOrigen.append(ipOrig)
+
+def analyzeLine(strLine):
+    stype = strLine[29:150]
+
+    #print ("VARABLE A ANALIZAR: "+stype)
+
+    if ("Pop3SSLServer" in stype):
+        analyzeIpPop3SSLServer(strLine)
+        analyzeTime(strLine)
+        analyzeMail(strLine)
+    if ("ImapSSLServer" in stype):
+        analyzeIpImapSSLServer(strLine)
+        analyzeTime(strLine)
+        analyzeMail(strLine)
+
+def ReadLog(strPath):
+    for root, dirs, files in os.walk(strPath):
+        for filename in files:
+            filename = sFilePath+filename
+
+            #print ("ARCHIVO A ANALIZAR: "+filename)
+
+            with open(filename) as fp:
+                 for cnt, line in enumerate(fp):
+                     analyzeLine(line)
+
+
+#Reporte 20 paises con mas ataques
+def CountryIpsMA(lIps):
+    print ("Reporte 20 paises con mas ataques")
+    for ip in lIps:
+         match = geolite2.lookup(ip)
+         lCountry.append(match.country)
+
+    counter=collections.Counter(lCountry)
+    lResult = counter.most_common(20)
+    for scountry in lResult:
+        print "PAIS :{} ---> Total de ataques:{}".format(scountry[0],scountry[1])
+
+#Reporte 20 ciudades con mas ataques
+def CityIpsMA(lIps):
+    print ("Reporte 20 ciudades con mas ataques")
+    for ip in lIps:
+         match = geolite2.lookup(ip)
+         lCountry.append(match.country)
+
+    counter=collections.Counter(lCountry)
+    lResult = counter.most_common(20)
+    for scountry in lResult:
+        print "PAIS :{} ---> Total de ataques:{}".format(scountry[0],scountry[1])
+
+#Reporte 20 ip con mas ataques
+def IpsMA(lIps):
+    print ("Reporte 20 ip con mas ataques")
+    counter=collections.Counter(lIps)
+    lResult = counter.most_common(20)
+    for scountry in lResult:
+        print "ip :{} ---> Total de ataques:{}".format(scountry[0],scountry[1])
+
+#Reporte 20 horas con mas ataques
+def HoursMA(lhours):
+    print ("Reporte 20 horas con mas ataques")
+    counter=collections.Counter(lhours)
+    lResult = counter.most_common(20)
+    for shour in lResult:
+        print "hora :{}:00 ---> Total de ataques:{}".format(shour[0],shour[1])
+
+#Reporte 20 correo con mas ataques
+def MailMA(lMailsc):
+    print ("Reporte 20 correos con mas ataques")
+    counter=collections.Counter(lMails)
+    lResult = counter.most_common(20)
+    for smail in lResult:
+        print "correo :{}@ucab.edu.ve ---> Total de ataques:{}".format(smail[0],smail[1])
+
+#MAIN
+ReadLog(sFilePath)
+
+CountryIpsMA(lIpsOrigen)
+print("\n")
+IpsMA(lIpsOrigen)
+print("\n")
+HoursMA(lTimes)
+print("\n")
+MailMA(lMails)
